@@ -28,6 +28,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import javax.net.ssl.SSLContext;
+
 import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
@@ -52,6 +54,11 @@ import org.apache.camel.component.as2.internal.AS2ApiCollection;
 import org.apache.camel.component.as2.internal.AS2Constants;
 import org.apache.camel.component.as2.internal.AS2ServerManagerApiMethod;
 import org.apache.camel.component.mock.MockEndpoint;
+import org.apache.camel.support.jsse.KeyManagersParameters;
+import org.apache.camel.support.jsse.KeyStoreParameters;
+import org.apache.camel.support.jsse.SSLContextParameters;
+import org.apache.camel.support.jsse.SSLContextServerParameters;
+import org.apache.camel.support.jsse.TrustManagersParameters;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
@@ -145,6 +152,8 @@ public class AS2ServerManagerIT extends AbstractAS2ITSupport {
     private static List<X509Certificate> certList;
 
     private static KeyPair decryptingKP;
+    private static SSLContext clientSslContext;
+    private static SSLContext serverSslContext;
 
     @BeforeAll
     public static void setup() throws Exception {
@@ -156,7 +165,7 @@ public class AS2ServerManagerIT extends AbstractAS2ITSupport {
         AS2ClientConnection clientConnection
                 = new AS2ClientConnection(
                         AS2_VERSION, USER_AGENT, CLIENT_FQDN, TARGET_HOST, TARGET_PORT, HTTP_SOCKET_TIMEOUT,
-                        HTTP_CONNECTION_TIMEOUT, HTTP_CONNECTION_POOL_SIZE, HTTP_CONNECTION_POOL_TTL);
+                        HTTP_CONNECTION_TIMEOUT, HTTP_CONNECTION_POOL_SIZE, HTTP_CONNECTION_POOL_TTL, clientSslContext);
         AS2ClientManager clientManager = new AS2ClientManager(clientConnection);
 
         clientManager.send(EDI_MESSAGE, REQUEST_URI, SUBJECT, FROM, AS2_NAME, AS2_NAME, AS2MessageStructure.PLAIN,
@@ -221,7 +230,7 @@ public class AS2ServerManagerIT extends AbstractAS2ITSupport {
         AS2ClientConnection clientConnection
                 = new AS2ClientConnection(
                         AS2_VERSION, USER_AGENT, CLIENT_FQDN, TARGET_HOST, TARGET_PORT, HTTP_SOCKET_TIMEOUT,
-                        HTTP_CONNECTION_TIMEOUT, HTTP_CONNECTION_POOL_SIZE, HTTP_CONNECTION_POOL_TTL);
+                        HTTP_CONNECTION_TIMEOUT, HTTP_CONNECTION_POOL_SIZE, HTTP_CONNECTION_POOL_TTL, clientSslContext);
         AS2ClientManager clientManager = new AS2ClientManager(clientConnection);
 
         clientManager.send(EDI_MESSAGE, REQUEST_URI, SUBJECT, FROM, AS2_NAME, AS2_NAME, AS2MessageStructure.SIGNED,
@@ -302,7 +311,7 @@ public class AS2ServerManagerIT extends AbstractAS2ITSupport {
         AS2ClientConnection clientConnection
                 = new AS2ClientConnection(
                         AS2_VERSION, USER_AGENT, CLIENT_FQDN, TARGET_HOST, TARGET_PORT, HTTP_SOCKET_TIMEOUT,
-                        HTTP_CONNECTION_TIMEOUT, HTTP_CONNECTION_POOL_SIZE, HTTP_CONNECTION_POOL_TTL);
+                        HTTP_CONNECTION_TIMEOUT, HTTP_CONNECTION_POOL_SIZE, HTTP_CONNECTION_POOL_TTL, clientSslContext);
         AS2ClientManager clientManager = new AS2ClientManager(clientConnection);
 
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA", "BC");
@@ -394,7 +403,7 @@ public class AS2ServerManagerIT extends AbstractAS2ITSupport {
         AS2ClientConnection clientConnection
                 = new AS2ClientConnection(
                         AS2_VERSION, USER_AGENT, CLIENT_FQDN, TARGET_HOST, TARGET_PORT, HTTP_SOCKET_TIMEOUT,
-                        HTTP_CONNECTION_TIMEOUT, HTTP_CONNECTION_POOL_SIZE, HTTP_CONNECTION_POOL_TTL);
+                        HTTP_CONNECTION_TIMEOUT, HTTP_CONNECTION_POOL_SIZE, HTTP_CONNECTION_POOL_TTL, clientSslContext);
         AS2ClientManager clientManager = new AS2ClientManager(clientConnection);
 
         clientManager.send(EDI_MESSAGE, REQUEST_URI, SUBJECT, FROM, AS2_NAME, AS2_NAME, AS2MessageStructure.ENCRYPTED,
@@ -464,7 +473,7 @@ public class AS2ServerManagerIT extends AbstractAS2ITSupport {
         AS2ClientConnection clientConnection
                 = new AS2ClientConnection(
                         AS2_VERSION, USER_AGENT, CLIENT_FQDN, TARGET_HOST, TARGET_PORT, HTTP_SOCKET_TIMEOUT,
-                        HTTP_CONNECTION_TIMEOUT, HTTP_CONNECTION_POOL_SIZE, HTTP_CONNECTION_POOL_TTL);
+                        HTTP_CONNECTION_TIMEOUT, HTTP_CONNECTION_POOL_SIZE, HTTP_CONNECTION_POOL_TTL, clientSslContext);
         AS2ClientManager clientManager = new AS2ClientManager(clientConnection);
 
         HttpCoreContext context = clientManager.send(EDI_MESSAGE, "/process_error", SUBJECT, FROM, AS2_NAME, AS2_NAME,
@@ -490,7 +499,7 @@ public class AS2ServerManagerIT extends AbstractAS2ITSupport {
         AS2ClientConnection clientConnection
                 = new AS2ClientConnection(
                         AS2_VERSION, USER_AGENT, CLIENT_FQDN, TARGET_HOST, TARGET_PORT, HTTP_SOCKET_TIMEOUT,
-                        HTTP_CONNECTION_TIMEOUT, HTTP_CONNECTION_POOL_SIZE, HTTP_CONNECTION_POOL_TTL);
+                        HTTP_CONNECTION_TIMEOUT, HTTP_CONNECTION_POOL_SIZE, HTTP_CONNECTION_POOL_TTL, clientSslContext);
         AS2ClientManager clientManager = new AS2ClientManager(clientConnection);
 
         //Testing MDN parameter defaults
@@ -572,11 +581,54 @@ public class AS2ServerManagerIT extends AbstractAS2ITSupport {
 
     }
 
+    public SSLContext setupClientContext(CamelContext context) throws Exception {
+        KeyStoreParameters ksp = new KeyStoreParameters();
+        ksp.setResource("jsse/localhost.p12");
+        ksp.setPassword("changeit");
+
+        KeyManagersParameters kmp = new KeyManagersParameters();
+        kmp.setKeyPassword("changeit");
+        kmp.setKeyStore(ksp);
+
+        TrustManagersParameters tmp = new TrustManagersParameters();
+        tmp.setKeyStore(ksp);
+
+        SSLContextParameters sslContextParameters = new SSLContextParameters();
+        sslContextParameters.setKeyManagers(kmp);
+        sslContextParameters.setTrustManagers(tmp);
+
+        return sslContextParameters.createSSLContext(context);
+    }
+
+    public SSLContext setupServerContext(CamelContext context) throws Exception {
+        KeyStoreParameters ksp = new KeyStoreParameters();
+        ksp.setResource("jsse/localhost.p12");
+        ksp.setPassword("changeit");
+
+        KeyManagersParameters kmp = new KeyManagersParameters();
+        kmp.setKeyPassword("changeit");
+        kmp.setKeyStore(ksp);
+
+        TrustManagersParameters tmp = new TrustManagersParameters();
+        tmp.setKeyStore(ksp);
+
+        SSLContextParameters sslContextParameters = new SSLContextParameters();
+        sslContextParameters.setKeyManagers(kmp);
+        sslContextParameters.setTrustManagers(tmp);
+
+        SSLContextServerParameters scsp = new SSLContextServerParameters();
+        sslContextParameters.setServerParameters(scsp);
+        return sslContextParameters.createSSLContext(context);
+    }
+
     @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext context = super.createCamelContext();
+        this.clientSslContext = setupClientContext(context);
+        this.serverSslContext = setupServerContext(context);
         AS2Component as2Component = (AS2Component) context.getComponent("as2");
         AS2Configuration configuration = as2Component.getConfiguration();
+        configuration.setSslContext(serverSslContext);
         configuration.setDecryptingPrivateKey(decryptingKP.getPrivate());
         return context;
     }

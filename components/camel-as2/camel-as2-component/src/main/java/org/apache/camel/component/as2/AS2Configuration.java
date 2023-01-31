@@ -20,6 +20,8 @@ import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.time.Duration;
 
+import javax.net.ssl.SSLContext;
+
 import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.component.as2.api.AS2CompressionAlgorithm;
 import org.apache.camel.component.as2.api.AS2EncryptionAlgorithm;
@@ -110,6 +112,8 @@ public class AS2Configuration {
     private Duration httpConnectionPoolTtl = Duration.ofMinutes(15);
     @UriParam(label = "security")
     private Certificate[] validateSigningCertificateChain;
+    @UriParam
+    private SSLContext sslContext;
 
     public AS2ApiName getApiName() {
         return apiName;
@@ -504,4 +508,15 @@ public class AS2Configuration {
         this.validateSigningCertificateChain = validateSigningCertificateChain;
     }
 
+    public SSLContext getSslContext() {
+        return sslContext;
+    }
+
+    /**
+     * The connection is secured using an SSLContext. Client: If the target server has a public SSL certificate, passing
+     * SSLContext.getDefault() as value may be sufficient.
+     */
+    public void setSslContext(SSLContext sslContext) {
+        this.sslContext = sslContext;
+    }
 }

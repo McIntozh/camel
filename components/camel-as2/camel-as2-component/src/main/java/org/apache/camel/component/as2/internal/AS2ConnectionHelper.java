@@ -55,7 +55,7 @@ public final class AS2ConnectionHelper {
                 configuration.getAs2Version(), configuration.getUserAgent(), configuration.getClientFqdn(),
                 configuration.getTargetHostname(), configuration.getTargetPortNumber(), configuration.getHttpSocketTimeout(),
                 configuration.getHttpConnectionTimeout(), configuration.getHttpConnectionPoolSize(),
-                configuration.getHttpConnectionPoolTtl());
+                configuration.getHttpConnectionPoolTtl(), configuration.getSslContext());
     }
 
     /**
@@ -74,7 +74,7 @@ public final class AS2ConnectionHelper {
                         configuration.getServerFqdn(), configuration.getServerPortNumber(), configuration.getSigningAlgorithm(),
                         configuration.getSigningCertificateChain(), configuration.getSigningPrivateKey(),
                         configuration.getDecryptingPrivateKey(), configuration.getMdnMessageTemplate(),
-                        configuration.getValidateSigningCertificateChain());
+                        configuration.getValidateSigningCertificateChain(), configuration.getSslContext());
                 serverConnections.put(configuration.getServerPortNumber(), serverConnection);
             }
             return serverConnection;

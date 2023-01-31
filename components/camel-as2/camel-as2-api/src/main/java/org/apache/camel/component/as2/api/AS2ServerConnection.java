@@ -24,6 +24,8 @@ import java.net.SocketException;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 
+import javax.net.ssl.SSLContext;
+
 import org.apache.camel.component.as2.api.entity.DispositionNotificationMultipartReportEntity;
 import org.apache.camel.component.as2.api.io.AS2BHttpServerConnection;
 import org.apache.camel.component.as2.api.protocol.ResponseMDN;
@@ -69,10 +71,15 @@ public class AS2ServerConnection {
                                      PrivateKey signingPrivateKey,
                                      PrivateKey decryptingPrivateKey,
                                      String mdnMessageTemplate,
-                                     Certificate[] validateSigningCertificateChain)
-                                                                                    throws IOException {
+                                     Certificate[] validateSigningCertificateChain,
+                                     SSLContext sslContext)
+                                                            throws IOException {
             setName(REQUEST_LISTENER_THREAD_NAME_PREFIX + port);
-            serversocket = new ServerSocket(port);
+            if (sslContext == null) {
+                serversocket = new ServerSocket(port);
+            } else {
+                serversocket = sslContext.getServerSocketFactory().createServerSocket(port);
+            }
 
             // Set up HTTP protocol processor for incoming connections
             final HttpProcessor inhttpproc = initProtocolProcessor(as2Version, originServer, serverFqdn,
@@ -197,6 +204,7 @@ public class AS2ServerConnection {
     private PrivateKey decryptingPrivateKey;
     private String mdnMessageTemplate;
     private Certificate[] validateSigningCertificateChain;
+    private SSLContext sslContext;
 
     public AS2ServerConnection(String as2Version,
                                String originServer,
@@ -207,8 +215,9 @@ public class AS2ServerConnection {
                                PrivateKey signingPrivateKey,
                                PrivateKey decryptingPrivateKey,
                                String mdnMessageTemplate,
-                               Certificate[] validateSigningCertificateChain)
-                                                                              throws IOException {
+                               Certificate[] validateSigningCertificateChain,
+                               SSLContext sslContext)
+                                                      throws IOException {
         this.as2Version = ObjectHelper.notNull(as2Version, "as2Version");
         this.originServer = ObjectHelper.notNull(originServer, "userAgent");
         this.serverFqdn = ObjectHelper.notNull(serverFqdn, "serverFqdn");
@@ -219,11 +228,12 @@ public class AS2ServerConnection {
         this.decryptingPrivateKey = decryptingPrivateKey;
         this.mdnMessageTemplate = mdnMessageTemplate;
         this.validateSigningCertificateChain = validateSigningCertificateChain;
+        this.sslContext = sslContext;
 
         listenerThread = new RequestListenerThread(
                 this.as2Version, this.originServer, this.serverFqdn,
                 this.serverPortNumber, this.signingAlgorithm, this.signingCertificateChain, this.signingPrivateKey,
-                this.decryptingPrivateKey, this.mdnMessageTemplate, validateSigningCertificateChain);
+                this.decryptingPrivateKey, this.mdnMessageTemplate, validateSigningCertificateChain, this.sslContext);
         listenerThread.setDaemon(true);
         listenerThread.start();
     }
